@@ -1,4 +1,5 @@
-const { shuffle, generate } = require('../utils/generate');
+const { saveExcel, generate } = require('../utils');
+const { shuffle } = require('../utils/generate');
 let competitors = {};
 const weights = [100, 200, 300, 500, 800]; // Definir os pesos do game
 const testWeights = [100, 200, 300]; // Definir os pesos de teste
@@ -184,8 +185,12 @@ class gameController {
     }
 
     static async getFinished(req, res) {
-        // Implementação do método getFinished
-        res.send("Método getFinished ainda não implementado.");
+        try {
+            var filename = await saveExcel(competitors, weights);
+            return res.download("./" + filename, filename);
+        } catch (error) {
+            return res.status(500).send("Atividade finalizada, porém, o excel falhou.");
+        }
     }
 }
 
