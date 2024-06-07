@@ -7,5 +7,5 @@ module.exports = function (app)
   app
     .use(express.json())
     .use("/game", game)
-    .use("/timer", timer)
+    // .use("/timer", timer)
 };

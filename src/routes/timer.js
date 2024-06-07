@@ -6,7 +6,7 @@ router
     .post('/start', timerController.postStartTimer)
     .get('/pause', timerController.getPauseTimer)
     .get('/check', timerController.getCheckTimer)
-    .get('/finish', timerController.getFinish)
+    .get('/finish', timerController.getFinished)
     .post('/reset', timerController.postReset)
     .post('/setOptions', timerController.postSetOptions)
     .post('/setTime', timerController.postSetTime)

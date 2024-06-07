@@ -10,10 +10,11 @@ router
     .post('/test-scales', gameController.postTestScales)
     .post('/scales/:code', gameController.postScales)
     .get('/competitors', gameController.getCompetitors)
+    .get('/players', gameController.getPlayers)
     .get('/status/:code', gameController.getStatus)
     .get('/game/:code', gameController.getGame)
     .get('/test', gameController.getTest)
     .get('/dashboard', gameController.getDashboard)
-    .get('/finished', gameController.getFinished)
+    .get('/finished', gameController.getFinish)
 
 module.exports = router;

@@ -1,4 +1,3 @@
-// utils.js
 const fs = require('fs');
 const ExcelJS = require('exceljs');
 
@@ -91,7 +90,7 @@ async function saveExcel(competitors, weights) {
         } else {
             fileName = `processo_tarde${count}_${dateFormatted}.xlsx`;
         }
-
+s
         count++;
     } while (fs.existsSync(fileName));
 
@@ -112,7 +111,20 @@ async function generate() {
     return secretcode;
 }
 
+const shuffle = (array) => {
+    let currentIndex = array.length;
+    while (currentIndex != 0) {
+        let randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex],
+            array[currentIndex],
+        ];
+    }
+};
+
 module.exports = {
     saveExcel,
-    generate
+    generate,
+    shuffle
 };

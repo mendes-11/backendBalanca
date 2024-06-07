@@ -1,8 +1,8 @@
-const { saveExcel, generate } = require('../utils');
-const { shuffle } = require('../utils/generate');
+const { saveExcel, generate, shuffle } = require('../utils');
+const Player = require("../model/player");
 let competitors = {};
-const weights = [100, 200, 300, 500, 800]; // Definir os pesos do game
-const testWeights = [100, 200, 300]; // Definir os pesos de teste
+const weights = [100, 200, 300, 500, 800];
+const testWeights = [100, 200, 300];
 
 class gameController {
     static async postReady(req, res) {
@@ -37,26 +37,54 @@ class gameController {
 
         let code = await generate();
 
-        competitors[code] = { name, dataNasc, done, time, realScore, ...score, tentativas, pieces, code, accessed };
+        competitors[code] = new Player({
+            name, dataNasc, done, time,
+            realScore, score, tentativas,
+            pieces, code, accessed,
+            createdAt: new Date()
+        });
         console.log("Novo jogador:", code, name, realScore);
 
-        res.send({ message: "Dados recebidos com sucesso!", code: code });
+        try {
+            await competitors[code].save();
+            return res.status(201).send({ message: 'Player registered successfully', code: code });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).send({ message: 'Something failed while creating a player' });
+        }
     }
+
+    
+
 
     static async patchUpdateWeights(req, res) {
         const { code } = req.params;
         const { w1, w2, w3, w4, w5 } = req.body;
-
-        if (!competitors[code]) return res.status(404).send("Competidor não encontrado.");
-
-        competitors[code].w1 = w1 || competitors[code].w1;
-        competitors[code].w2 = w2 || competitors[code].w2;
-        competitors[code].w3 = w3 || competitors[code].w3;
-        competitors[code].w4 = w4 || competitors[code].w4;
-        competitors[code].w5 = w5 || competitors[code].w5;
-
-        res.send("Ok");
+    
+        try {
+            const player = await Player.findOneAndUpdate(
+                { code },
+                {
+                    $set: {
+                        "score.w1": w1,
+                        "score.w2": w2,
+                        "score.w3": w3,
+                        "score.w4": w4,
+                        "score.w5": w5
+                    }
+                },
+                { new: true } // Para retornar o documento atualizado
+            );
+    
+            if (!player) return res.status(404).send("Competidor não encontrado.");
+    
+            res.send("Ok");
+        } catch (error) {
+            console.error("Erro ao atualizar os pesos:", error);
+            res.status(500).send("Erro ao atualizar os pesos");
+        }
     }
+    
 
     static async patchFinalAnswer(req, res) {
         const { code } = req.params;
@@ -152,6 +180,14 @@ class gameController {
     static async getCompetitors(req, res) {
         res.send(competitors);
     }
+    static async getPlayers(req, res) {
+        try {
+            const players = await Player.find();
+            return res.status(200).send({ players });
+        } catch (error) {
+            return res.status(404).send({ error: 'Players not found!' });
+        }
+    }
 
     static async getStatus(req, res) {
         const { code } = req.params;
@@ -184,9 +220,28 @@ class gameController {
         res.send("Método getDashboard ainda não implementado.");
     }
 
-    static async getFinished(req, res) {
+    static async getFinish(req, res) {
+        function formatTime(milliseconds) {
+            const hours = Math.floor(milliseconds / 3600000);
+            const minutes = Math.floor((milliseconds % 3600000) / 60000);
+            const seconds = Math.floor((milliseconds % 60000) / 1000);
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        for (const code in competitors) {
+            if (competitors.hasOwnProperty(code)) {
+                const competitor = competitors[code];
+                if (!competitor.time) {
+                    const elapsedTime = Date.now() - startTime;
+                    competitor.time = formatTime(elapsedTime);
+                }
+            }
+        }
+
+        finished = true;
+        startTime = null;
         try {
-            var filename = await saveExcel(competitors, weights);
+            var filename = await saveExcel();
             return res.download("./" + filename, filename);
         } catch (error) {
             return res.status(500).send("Atividade finalizada, porém, o excel falhou.");

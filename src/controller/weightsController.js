@@ -20,7 +20,6 @@ class weightsController {
           console.log("Pesos do jogo atualizados para:", weights);
           return res.send("Pesos do jogo atualizados");
       }
-
       return res.status(400).send("Target inválido");
   }
 }
