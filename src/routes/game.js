@@ -18,3 +18,6 @@ router
     .get('/finished', gameController.getFinish)
 
 module.exports = router;
+
+
+

@@ -1,8 +1,9 @@
 const { saveExcel, generate, shuffle } = require('../utils');
 const Player = require("../model/player");
-let competitors = {};
+competitors = {}
 const weights = [100, 200, 300, 500, 800];
 const testWeights = [100, 200, 300];
+const startTime = Date.now(); //Retirar isso
 
 class gameController {
     static async postReady(req, res) {
@@ -54,9 +55,6 @@ class gameController {
         }
     }
 
-    
-
-
     static async patchUpdateWeights(req, res) {
         const { code } = req.params;
         const { w1, w2, w3, w4, w5 } = req.body;
@@ -73,7 +71,7 @@ class gameController {
                         "score.w5": w5
                     }
                 },
-                { new: true } // Para retornar o documento atualizado
+                { new: true }
             );
     
             if (!player) return res.status(404).send("Competidor não encontrado.");
@@ -85,30 +83,40 @@ class gameController {
         }
     }
     
-
     static async patchFinalAnswer(req, res) {
         const { code } = req.params;
         const { w1, w2, w3, w4, w5 } = req.body;
+        
+        try{
+            const competitor = await Player.findOneAndUpdate(
+                { code },
+                {
+                    $set: {
+                        "score.w1": w1,
+                        "score.w2": w2,
+                        "score.w3": w3,
+                        "score.w4": w4,
+                        "score.w5": w5
+                    }
+                },
+                { new: true }
+            );
+            if (!competitor) return res.status(404).send("Competidor não encontrado.");
+                       
+            const elapsedTime = Date.now() - startTime;
+            
+            const hours = Math.floor(elapsedTime / 3600000);
+            const minutes = Math.floor((elapsedTime % 3600000) / 60000);
+            const seconds = Math.floor((elapsedTime % 60000) / 1000);
+            
+            competitor.time = `${hours}:${minutes}:${seconds}`;
+            await competitor.save();
 
-        if (!competitors[code]) return res.status(404).send("Competidor não encontrado.");
-
-        competitors[code].w1 = w1 || competitors[code].w1;
-        competitors[code].w2 = w2 || competitors[code].w2;
-        competitors[code].w3 = w3 || competitors[code].w3;
-        competitors[code].w4 = w4 || competitors[code].w4;
-        competitors[code].w5 = w5 || competitors[code].w5;
-
-        competitors[code].done = true;
-
-        const elapsedTime = Date.now() - startTime;
-
-        const hours = Math.floor(elapsedTime / 3600000);
-        const minutes = Math.floor((elapsedTime % 3600000) / 60000);
-        const seconds = Math.floor((elapsedTime % 60000) / 1000);
-
-        competitors[code].time = `${hours}:${minutes}:${seconds}`;
-
-        res.send("OK");
+            res.send("OK");
+        } catch (error) {
+            console.error("Erro ao autalizar a resposta final:", error);
+            res.status(500).send("Erro ao autalizar a resposta final");
+        }
     }
 
     static async postTestScales(req, res) {
@@ -140,46 +148,66 @@ class gameController {
     static async postScales(req, res) {
         const { code } = req.params;
         const { quantities } = req.body;
-
-        if (!competitors[code]) return res.status(404).send("Competidor não encontrado");
-
-        if (!quantities) return res.status(400).send({ message: "Vazio" });
-
-        competitors[code].tentativas += 1;
-        competitors[code].pieces = 0;
-
-        let results = [];
-
-        for (let i = 0; i < quantities.length; i++) {
-            const bal = quantities[i];
+    
+        if (!code) return res.status(400).send({ message: "Code não fornecido" });
+        if (!quantities || !Array.isArray(quantities) || quantities.length !== 10) {
+            return res.status(400).send({ message: "Quantities deve ser um array de 10 números" });
+        }
+    
+        try {
+            console.log(`Buscando competidor com o code: ${code}`);
+            const competitor = await Player.findOne({ code });
+    
+            if (!competitor) return res.status(404).send("Competidor não encontrado");
+    
+            competitor.tentativas += 1;
+            competitor.pieces = 0;
+    
             let plate1 = 0;
             let plate2 = 0;
-
+    
             let temp = [
-                competitors[code].realScore[1],
-                competitors[code].realScore[2],
-                competitors[code].realScore[0],
-                competitors[code].realScore[4],
-                competitors[code].realScore[3]
+                competitor.realScore[1],
+                competitor.realScore[2],
+                competitor.realScore[0],
+                competitor.realScore[4],
+                competitor.realScore[3]
             ];
-
+    
+            const weights = [1, 2, 3, 4, 5];
+    
             for (let j = 0; j < 5; j++) {
-                plate1 += bal[j] * weights[temp[j]];
-                plate2 += bal[j + 5] * weights[temp[j]];
-                competitors[code].pieces += bal[j] + bal[j + 5];
+                const value1 = quantities[j];
+                const value2 = quantities[j + 5];
+    
+                if (typeof value1 !== 'number' || typeof value2 !== 'number') {
+                    return res.status(400).send({ message: "Quantities deve conter apenas números" });
+                }
+    
+                plate1 += value1 * weights[temp[j]];
+                plate2 += value2 * weights[temp[j]];
+                competitor.pieces += value1 + value2;
             }
-
-            if (plate1 > plate2) results.push(-1);
-            else if (plate1 === plate2) results.push(0);
-            else results.push(1);
+    
+            let result;
+            if (plate1 > plate2) result = -1;
+            else if (plate1 === plate2) result = 0;
+            else result = 1;
+    
+            await competitor.save();
+    
+            res.send({ result });
+        } catch (error) {
+            console.error(error);
+            res.status(500).send({ message: "Erro no servidor" });
         }
-
-        res.send({ results });
     }
 
+    // Arrumar
     static async getCompetitors(req, res) {
         res.send(competitors);
     }
+
     static async getPlayers(req, res) {
         try {
             const players = await Player.find();
@@ -189,6 +217,7 @@ class gameController {
         }
     }
 
+    // Arrumar
     static async getStatus(req, res) {
         const { code } = req.params;
         var comp = competitors[code];
@@ -199,16 +228,29 @@ class gameController {
 
     static async getGame(req, res) {
         const { code } = req.params;
-        if (!competitors[code])
-            return res.render("Error", { title: "Não encontrado", message: "Jogador não encontrado" });
-
-        if (competitors[code].accessed)
-            return res.render("Error", { title: "Já Acessado", message: "Solicite ajuda de um dos instrutores da avaliação" });
-
-        competitors[code].accessed = true;
-
-        res.render("Game", { data: data, defaultWeight: weights[2], code, showTimer, showTries, testDuration });
+    
+        try {
+            const competitor = await Player.findOne({ code });
+    
+            if (!competitor) {
+                return res.render("Error", { title: "Não encontrado", message: "Jogador não encontrado" });
+            }
+    
+            if (competitor.accessed) {
+                return res.render("Error", { title: "Já Acessado", message: "Solicite ajuda de um dos instrutores da avaliação" });
+            }
+    
+            competitor.accessed = true;
+            await competitor.save();
+    
+            res.render("Game", { data: data, defaultWeight: weights[2], code, showTimer, showTries, testDuration });
+         
+        } catch (error) {
+            console.error(error);
+            res.status(500).send("Erro no servidor");
+        }
     }
+
 
     static async getTest(req, res) {
         // Implementação do método getTest

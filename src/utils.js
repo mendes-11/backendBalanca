@@ -90,7 +90,7 @@ async function saveExcel(competitors, weights) {
         } else {
             fileName = `processo_tarde${count}_${dateFormatted}.xlsx`;
         }
-s
+
         count++;
     } while (fs.existsSync(fileName));
 
